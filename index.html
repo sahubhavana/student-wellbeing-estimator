@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Wellbeing Estimator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+
+
+:root{
+  --bg:#eef1f7; --panel:#ffffff; --ink:#1b2340; --muted:#5d6785; --line:#d9dfec;
+  --accent:#4a55d6; --accent-ink:#ffffff; --soft:#e3e6fb; --err:#b3261e; --track:#e3e7f1;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#12162a; --panel:#1b2140; --ink:#eef0fb; --muted:#9aa4c7; --line:#2d3560;
+        --accent:#8b95ff; --accent-ink:#12162a; --soft:#2a3166; --err:#ffb4ab; --track:#2a3160;}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding:32px 16px 56px}
+.wrap{max-width:1040px;margin:0 auto}
+h1{font-size:clamp(28px,4vw,42px);line-height:1.1;margin:0 0 8px;font-weight:800;letter-spacing:-.02em}
+.lede{color:var(--muted);max-width:56ch;margin:0 0 28px}
+.grid{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px}
+fieldset{border:0;margin:0 0 26px;padding:0}
+legend{font-weight:700;font-size:17px;margin-bottom:14px;padding:0}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:520px){.row{grid-template-columns:1fr}}
+label,.lab{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
+input[type=number],input[type=text],select{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px}
+input:focus-visible,select:focus-visible,button:focus-visible,.seg input:focus-visible+span{outline:3px solid var(--accent);outline-offset:2px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg label{margin:0;flex:1;min-width:max-content}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;text-align:center;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;font-weight:500;background:var(--bg);transition:background .15s,border-color .15s}
+.seg input:checked+span{background:var(--soft);border-color:var(--accent);font-weight:700}
+.slider{margin-bottom:16px}
+.slider .top{display:flex;justify-content:space-between;align-items:baseline}
+.slider output{font-weight:700;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent);margin:4px 0 0}
+.field{margin-bottom:14px}
+button.go{width:100%;font:inherit;font-weight:700;font-size:16px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:14px;cursor:pointer}
+button.go:disabled{opacity:.6;cursor:wait}
+.result{position:sticky;top:20px;text-align:center}
+.result h2{font-size:17px;margin:0 0 4px}
+.gauge{width:100%;max-width:300px;margin:8px auto 0;display:block}
+.gauge .track{stroke:var(--track)}
+.gauge .fill{stroke:var(--accent);transition:stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1)}
+.score{font-size:54px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-top:-34px;font-variant-numeric:tabular-nums}
+.scale{color:var(--muted);font-size:13px;margin-top:4px}
+.band{display:inline-block;margin-top:14px;padding:6px 14px;border-radius:99px;background:var(--soft);font-weight:700}
+.empty{color:var(--muted);margin-top:18px}
+.err{color:var(--err);margin-top:16px;font-weight:600}
+.note{color:var(--muted);font-size:13px;margin-top:20px;text-align:left;border-top:1px solid var(--line);padding-top:14px}
+.api{display:flex;gap:8px;align-items:center;margin-top:22px;font-size:13px;color:var(--muted)}
+.api input{max-width:260px;padding:6px 10px;font-size:13px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:#2e9e5b}.dot.bad{background:var(--err)}
+@media (prefers-reduced-motion:reduce){.gauge .fill{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Student wellbeing estimator</h1>
+  <p class="lede">Describe a student’s daily habits and get an estimated mental health score from your trained model.</p>
+
+  <div class="grid">
+    <form class="panel" id="form" novalidate>
+      <fieldset>
+        <legend>About the student</legend>
+        <div class="row">
+          <div class="field"><label for="Age">Age</label><input type="number" id="Age" min="10" max="100" value="20" required></div>
+          <div class="field"><label for="Country">Country</label>
+            <input type="text" id="Country" list="countries" value="India" required>
+            <datalist id="countries"><option>India</option><option>USA</option><option>Canada</option><option>Australia</option><option>UK</option><option>Germany</option><option>Mexico</option><option>Turkey</option><option>France</option></datalist>
+          </div>
+        </div>
+        <div class="field"><span class="lab">Gender</span>
+          <div class="seg" role="radiogroup" aria-label="Gender" data-name="Gender">
+            <label><input type="radio" name="Gender" value="Male" checked><span>Male</span></label>
+            <label><input type="radio" name="Gender" value="Female"><span>Female</span></label>
+          </div></div>
+        <div class="field"><span class="lab">Academic level</span>
+          <div class="seg" role="radiogroup" aria-label="Academic level">
+            <label><input type="radio" name="Academic_Level" value="High_School"><span>High school</span></label>
+            <label><input type="radio" name="Academic_Level" value="Undergraduate" checked><span>Undergraduate</span></label>
+            <label><input type="radio" name="Academic_Level" value="Graduate"><span>Graduate</span></label>
+          </div></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Social media</legend>
+        <div class="row">
+          <div class="field"><label for="Most_Used_Platform">Most used platform</label>
+            <select id="Most_Used_Platform"></select></div>
+          <div class="field"><label for="Purpose_Of_Use">Main purpose</label>
+            <select id="Purpose_Of_Use">
+              <option value="Entertainment">Entertainment</option><option value="Networking">Networking</option>
+              <option value="Education">Education</option><option value="News">News</option>
+            </select></div>
+        </div>
+        <div class="slider"><div class="top"><label for="Avg_Daily_Usage_Hours">Daily usage</label><output for="Avg_Daily_Usage_Hours"></output></div>
+          <input type="range" id="Avg_Daily_Usage_Hours" min="0" max="16" step="0.5" value="4.5" data-unit="h"></div>
+        <div class="slider"><div class="top"><label for="Daily_Unlocks">Phone unlocks per day</label><output for="Daily_Unlocks"></output></div>
+          <input type="range" id="Daily_Unlocks" min="0" max="200" step="1" value="60"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Lifestyle</legend>
+        <div class="slider"><div class="top"><label for="Study_Hours">Study time per day</label><output for="Study_Hours"></output></div>
+          <input type="range" id="Study_Hours" min="0" max="16" step="0.5" value="4" data-unit="h"></div>
+        <div class="slider"><div class="top"><label for="Physical_Activity_Hours">Physical activity per day</label><output for="Physical_Activity_Hours"></output></div>
+          <input type="range" id="Physical_Activity_Hours" min="0" max="6" step="0.25" value="1" data-unit="h"></div>
+        <div class="slider"><div class="top"><label for="Sleep_Hours_Per_Night">Sleep per night</label><output for="Sleep_Hours_Per_Night"></output></div>
+          <input type="range" id="Sleep_Hours_Per_Night" min="0" max="12" step="0.5" value="7" data-unit="h"></div>
+        <div class="field"><span class="lab">Stress level</span>
+          <div class="seg" role="radiogroup" aria-label="Stress level">
+            <label><input type="radio" name="Stress_Level" value="Low"><span>Low</span></label>
+            <label><input type="radio" name="Stress_Level" value="Medium" checked><span>Medium</span></label>
+            <label><input type="radio" name="Stress_Level" value="High"><span>High</span></label>
+            <label><input type="radio" name="Stress_Level" value="Very High"><span>Very high</span></label>
+          </div></div>
+      </fieldset>
+
+      <button class="go" type="submit" id="btn">Estimate score</button>
+      <div class="api"><span class="dot" id="dot"></span><label for="apiUrl" style="margin:0;font-weight:500">API address</label>
+        <input type="text" id="apiUrl" value="http://127.0.0.1:2200"></div>
+    </form>
+
+    <aside class="panel result" aria-live="polite">
+      <h2>Estimated score</h2>
+      <svg class="gauge" viewBox="0 0 200 115" role="img" aria-label="Score gauge">
+        <path class="track" d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke-width="16" stroke-linecap="round"/>
+        <path class="fill" id="arc" d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke-width="16" stroke-linecap="round" stroke-dasharray="251.33" stroke-dashoffset="251.33"/>
+      </svg>
+      <div class="score" id="score">–</div>
+      <div class="scale" id="scale">out of 10</div>
+      <div id="out"><p class="empty">Fill in the form and select Estimate score.</p></div>
+      <p class="note">This is a statistical estimate from survey-style data, not a diagnosis. If you are worried about someone’s mental health, talk to a qualified professional.</p>
+    </aside>
+  </div>
+</div>
+
+<script>
+  const API_URL = "http://127.0.0.1:2200/predict";
+const MAX_SCORE = 10; // change if your model’s score uses a different scale
+const platforms = ["Instagram","TikTok","YouTube","Facebook","WhatsApp","Snapchat","Twitter","LinkedIn","LINE","KakaoTalk","VKontakte","WeChat"];
+const $ = id => document.getElementById(id);
+$('Most_Used_Platform').innerHTML = platforms.map(p => `<option>${p}</option>`).join('');
+document.getElementById('scale').textContent = `out of ${MAX_SCORE}`;
+
+// live slider values
+document.querySelectorAll('input[type=range]').forEach(r => {
+  const o = document.querySelector(`output[for=${r.id}]`);
+  const upd = () => o.textContent = r.value + (r.dataset.unit ? ' ' + r.dataset.unit : '');
+  r.addEventListener('input', upd); upd();
+});
+
+// API health dot
+async function ping(){
+  const dot = $('dot');
+  try { const r = await fetch($('apiUrl').value.replace(/\/$/,'') + '/'); dot.className = 'dot ' + (r.ok ? 'ok' : 'bad'); }
+  catch { dot.className = 'dot bad'; }
+}
+$('apiUrl').addEventListener('change', ping); ping();
+
+function band(s){
+  const p = s / MAX_SCORE;
+  return p >= .75 ? 'Strong wellbeing' : p >= .5 ? 'Moderate wellbeing' : 'Lower wellbeing';
+}
+function showScore(v){
+  const arc = $('arc'), len = 251.33;
+  arc.style.strokeDashoffset = len * (1 - Math.max(0, Math.min(1, v / MAX_SCORE)));
+  $('score').textContent = v.toFixed(2);
+}
+
+$('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const out = $('out'), btn = $('btn');
+  const radio = n => document.querySelector(`input[name=${n}]:checked`).value;
+  const num = id => Number($(id).value);
+
+  const payload = {
+    Age: num('Age'),
+    Gender: radio('Gender'),
+    Country: $('Country').value.trim(),
+    Academic_Level: radio('Academic_Level'),
+    Most_Used_Platform: $('Most_Used_Platform').value,
+    Purpose_Of_Use: $('Purpose_Of_Use').value,
+    Avg_Daily_Usage_Hours: num('Avg_Daily_Usage_Hours'),
+    Daily_Unlocks: num('Daily_Unlocks'),
+    Study_Hours: num('Study_Hours'),
+    Physical_Activity_Hours: num('Physical_Activity_Hours'),
+    Sleep_Hours_Per_Night: num('Sleep_Hours_Per_Night'),
+    Stress_Level: radio('Stress_Level')
+  };
+
+  if (!payload.Country || !(payload.Age >= 10 && payload.Age <= 100)) {
+    out.innerHTML = '<p class="err">Enter an age between 10 and 100 and a country.</p>'; return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Estimating…';
+  try {
+    const res = await fetch($('apiUrl').value.replace(/\/$/,'') + '/predict', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      let msg = `The API returned an error (${res.status}).`;
+      try { const j = await res.json(); if (Array.isArray(j.detail)) msg = j.detail.map(d => `${d.loc.slice(-1)[0]}: ${d.msg}`).join('; '); } catch {}
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    const v = data.predict_mental_health_score;
+    showScore(v);
+    out.innerHTML = `<span class="band">${band(v)}</span>`;
+    $('dot').className = 'dot ok';
+  } catch (err) {
+    const offline = err instanceof TypeError;
+    out.innerHTML = `<p class="err">${offline ? 'Cannot reach the API. Start it with <code>uvicorn main:app --reload</code> and check the API address below the form.' : err.message}</p>`;
+    if (offline) $('dot').className = 'dot bad';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Estimate score';
+  }
+});
+</script>
+</body>
+</html>
